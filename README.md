@@ -1,10 +1,62 @@
 # Bank SMS Parser
 
-Bank SMS Parser is an Android application that parses bank and credit card SMS messages to categorize and track financial transactions.
+Bank SMS Parser is an Android application that parses bank and credit-card SMS messages and converts relevant messages into structured financial transactions.
 
-The solution is implemented using **Android Native development with Kotlin**. The parser uses a rule-based classification pipeline along with regular expressions and dedicated extractors to identify relevant credit-card transactions and extract information such as amount, merchant, bank, date, currency, card details, and transaction type.
+The application uses a rule-based parsing pipeline to:
 
-The implementation also aggressively filters irrelevant messages such as OTPs, promotional messages, declined transactions, debit-card transactions, balance alerts, investments, insurance, bill reminders, fees, and other excluded categories.
+- classify SMS messages as included or excluded
+- extract transaction amounts and currencies
+- identify banks and card issuers
+- extract card last-four digits
+- identify merchants
+- extract transaction dates
+- determine transaction type
+- calculate parsing confidence
+- provide detailed information for every parsed SMS
+
+The project is implemented using **native Android development with Kotlin and Jetpack Compose**.
+
+---
+
+## Features
+
+- Credit-card transaction detection
+- Merchant extraction using multiple SMS formats
+- Bank and card issuer resolution
+- Configurable bank aliases
+- Configurable card-product mappings
+- Refund detection
+- Foreign-currency transaction support
+- Transaction date extraction
+- Card last-four extraction
+- Confidence scoring
+- Rule-based SMS exclusion
+- OTP filtering
+- Debit-card filtering
+- UPI bank-account filtering
+- Promotional SMS filtering
+- Declined transaction filtering
+- Bill-due filtering
+- Investment and insurance filtering
+- EMI conversion filtering
+- Balance-alert filtering
+- Malformed SMS handling
+- Raw SMS inspection through a detail screen
+
+---
+
+## Technology Stack
+
+- Kotlin
+- Native Android
+- Jetpack Compose
+- Material 3
+- Kotlin Coroutines / Flow
+- Android ViewModel
+- JUnit
+- Regular Expressions
+
+The parser itself is kept independent of Android UI concerns as much as possible, making the core parsing logic easier to test.
 
 ---
 
@@ -12,16 +64,17 @@ The implementation also aggressively filters irrelevant messages such as OTPs, p
 
 ```text
 app/src/main/java/com/example/smsparser/
-│
+
 ├── model/
-│   ├── Transaction.kt
-│   ├── TransactionType.kt
-│   ├── ParsedResult.kt
 │   ├── Decision.kt
-│   └── ExcludeReason.kt
+│   ├── ExcludeReason.kt
+│   ├── ParsedResult.kt
+│   ├── Transaction.kt
+│   └── TransactionType.kt
 │
 ├── parser/
 │   ├── SmsParser.kt
+│   │
 │   ├── classifier/
 │   │   ├── SmsClassifier.kt
 │   │   ├── ClassificationResult.kt
@@ -30,185 +83,400 @@ app/src/main/java/com/example/smsparser/
 │   │       └── InclusionRules.kt
 │   │
 │   ├── config/
+│   │   ├── ParserConfig.kt
 │   │   ├── BankConfig.kt
-│   │   ├── CardProductConfig.kt
-│   │   └── ParserConfig.kt
+│   │   └── CardProductConfig.kt
 │   │
-│   ├── extractor/
-│   │   ├── AmountExtractor.kt
-│   │   ├── BankResolver.kt
-│   │   ├── CardExtractor.kt
-│   │   ├── CurrencyExtractor.kt
-│   │   ├── DateExtractor.kt
-│   │   ├── MerchantExtractor.kt
-│   │   └── TransactionTypeExtractor.kt
+│   ├── confidence/
+│   │   └── ConfidenceCalculator.kt
 │   │
-│   └── confidence/
-│       └── ConfidenceCalculator.kt
+│   └── extractor/
+│       ├── AmountExtractor.kt
+│       ├── BankResolver.kt
+│       ├── CardExtractor.kt
+│       ├── CurrencyExtractor.kt
+│       ├── DateExtractor.kt
+│       ├── MerchantExtractor.kt
+│       └── TransactionTypeExtractor.kt
 │
 ├── repository/
-├── ui/
-└── MainActivity.kt
-
-app/src/test/java/
-└── Parser unit tests
+│   └── SmsRepository.kt
+│
+└── ui/
+    ├── TransactionListScreen.kt
+    ├── TransactionViewModel.kt
+    └── TransactionViewModelFactory.kt
 ```
 
 ---
 
-## High-Level Flow
+## Parsing Architecture
+
+The parser follows a pipeline-based approach:
 
 ```text
-SMS
- │
- ▼
-Normalization
- │
- ▼
+Raw SMS
+   ↓
 SmsClassifier
- │
- ├── EXCLUDE ───────────────► ParsedResult(EXCLUDE)
- │
- └── INCLUDE
-       │
-       ▼
-   Extractors
-       │
-       ├── Amount
-       ├── Currency
-       ├── Bank
-       ├── Card
-       ├── Merchant
-       ├── Date
-       └── Transaction Type
-       │
-       ▼
-   Confidence Calculation
-       │
-       ▼
-   ParsedResult(INCLUDE)
-       │
-       ▼
-   Android UI
+   ↓
+Include / Exclude
+   ↓
+Extractors
+   ├── Amount
+   ├── Currency
+   ├── Bank
+   ├── Card
+   ├── Merchant
+   ├── Date
+   └── Transaction Type
+   ↓
+ConfidenceCalculator
+   ↓
+ParsedResult
 ```
 
-The classifier is deliberately kept separate from extraction. This prevents an SMS from being treated as a transaction merely because it contains a financial amount.
+Excluded messages do not proceed through transaction extraction.
+
+For included messages, the parser extracts the available transaction fields and calculates a confidence score based on the extracted information.
 
 ---
 
-## Key Features
+## Configuration-Driven Bank and Card Resolution
 
-- Parses bank and credit-card SMS messages.
-- Extracts transaction amount and currency.
-- Resolves bank names and aliases to canonical names.
-- Extracts card last-four digits where available.
-- Extracts merchant names from different SMS structures.
-- Extracts transaction dates.
-- Identifies transaction types such as:
-  - `DEBIT`
-  - `CREDIT`
-  - `REFUND`
-- Classifies messages into `INCLUDE` or `EXCLUDE`.
-- Provides an exclusion reason for filtered SMS messages.
-- Calculates a confidence score for parsed transactions.
-- Displays parsed transactions and SMS details in a native Android UI.
-- Allows the user to click a transaction/SMS card and view its complete details.
-- Uses Kotlin and Android Native/Jetpack Compose rather than a cross-platform implementation.
+Bank and card-product identification is configuration-driven rather than being tightly coupled to individual SMS examples.
 
----
+The configuration layer contains:
 
-## Important Parsing Challenges
+```text
+ParserConfig
+├── BankConfig
+└── CardProductConfig
+```
 
-The sample SMS set contains several different sentence structures. A major implementation challenge was avoiding overfitting the parser to the exact 25 examples.
+### BankConfig
 
-### 1. Merchant extraction — different sentence structures
+`BankConfig` represents a canonical bank name and its supported aliases.
 
 For example:
 
-- `spent ... at AMAZON ...`
-- `spent ... to HOSPITALITY PVT DELHI IN on your ... Credit Card`
-- `spent ... at Blackwater Coffee, Gurgaon with your ... Credit Card`
+```kotlin
+BankConfig(
+    canonicalName = "New Bank",
+    aliases = listOf(
+        "new bank",
+        "newbank"
+    )
+)
+```
 
-The merchant extractor therefore uses structural boundaries such as:
+This allows different SMS representations of the same bank to resolve to a single canonical name.
 
-- `at ... on`
-- `at ... with`
-- `to ... on ... Card`
-- sentence boundaries
+### CardProductConfig
 
-rather than matching only specific merchant names.
+`CardProductConfig` allows card-product or co-branded card identifiers to be associated with their underlying issuer.
 
-This was especially important for cases such as **2, 7, 8, and 9**, where a generic merchant extraction rule could accidentally include card/bank information in the merchant title.
+This is important for cases such as:
 
-### 2. Bank resolution
+```text
+BOBCARD One Credit Card
+```
 
-Bank names can appear in different forms:
+where the SMS may identify the card product rather than explicitly stating the issuer as:
 
-- `HDFC Bank`
-- `Axis Bank`
-- `Edge Federal Bank`
-- `BOBCARD`
-- `Jupiter`
-- other bank/card product aliases
+```text
+Bank of Baroda
+```
 
-The parser separates bank resolution from merchant extraction so that a card product or bank alias does not accidentally become part of the merchant name.
+The configuration layer allows these mappings to be extended without changing the core parser logic.
 
-For example, the merchant in the Blackwater Coffee example should remain:
+### Custom configuration
+
+The parser components can receive a custom `ParserConfig`, for example:
+
+```kotlin
+val customConfig = ParserConfig(
+    banks = listOf(
+        BankConfig(
+            canonicalName = "New Bank",
+            aliases = listOf(
+                "new bank",
+                "newbank"
+            )
+        )
+    ),
+    cardProducts = emptyList()
+)
+
+val parser = SmsParser(
+    bankResolver = BankResolver(customConfig)
+)
+```
+
+This makes the parser extensible to new banks and card products without modifying the extraction algorithm itself.
+
+---
+
+## Important SMS Formats and Challenges
+
+The parser was designed against multiple real-world SMS formats rather than relying on a single fixed template.
+
+### Merchant extraction
+
+Merchant information can appear in different positions.
+
+For example:
+
+```text
+INR 1,250.00 spent on HDFC Bank Credit Card xx5678 at SWIGGY
+```
+
+and:
+
+```text
+You've spent Rs. 849.00 at Blackwater Coffee, Gurgaon
+with your BOBCARD One Credit Card ending in XX9907
+```
+
+and:
+
+```text
+You've spent Rs 1836.00 to HOSPITALITY PVT DELHI IN
+on your Edge Federal Bank Credit Card ending 4422
+```
+
+The merchant extractor therefore uses multiple patterns and sentence boundaries rather than depending on one exact SMS template.
+
+### Challenge: SMS 2 and SMS 7
+
+Some SMS formats contain merchant and date information close together:
+
+```text
+at SWIGGY on 03-04-2026
+```
+
+or:
+
+```text
+at AMAZON on 07-04-26
+```
+
+A naive merchant extraction could incorrectly produce:
+
+```text
+AMAZON on 07-04-26
+```
+
+instead of:
+
+```text
+AMAZON
+```
+
+The extractor therefore explicitly treats date boundaries such as `on <date>` as the end of the merchant name.
+
+### Challenge: SMS 8
+
+Merchant information can appear after the word `to`:
+
+```text
+spent Rs 1836.00 to HOSPITALITY PVT DELHI IN
+on your Edge Federal Bank Credit Card
+```
+
+The parser therefore supports both `at` and `to` merchant patterns.
+
+Expected merchant:
+
+```text
+HOSPITALITY PVT DELHI IN
+```
+
+### Challenge: SMS 9
+
+Some SMS messages contain a merchant name with punctuation and location information:
+
+```text
+at Blackwater Coffee, Gurgaon
+with your BOBCARD One Credit Card
+```
+
+The complete merchant value should be retained:
 
 ```text
 Blackwater Coffee, Gurgaon
 ```
 
-while the bank/card issuer information is resolved separately.
+At the same time, the card-product configuration resolves:
 
-### 3. Refund detection
+```text
+BOBCARD One
+```
 
-Refunds require special handling because the presence of `credited` alone is not sufficient to classify a transaction as a normal credit.
+to:
 
-For example:
+```text
+Bank of Baroda
+```
+
+This demonstrates why merchant extraction and bank/card-product resolution are treated as separate responsibilities.
+
+### Challenge: SMS 21 - Refunds
+
+Refund messages require special handling because a refund is not a normal debit.
+
+Example:
 
 ```text
 Refund of Rs 450.00 has been credited to your HDFC Card xx5678
-from BIGBASKET...
+from BIGBASKET on 12-04-26
 ```
 
-This must be classified as:
+The parser identifies:
 
 ```text
-TransactionType.REFUND
+Merchant: BIGBASKET
+Amount: 450.00
+Currency: INR
+Bank: HDFC Bank
+Card: 5678
+Type: REFUND
 ```
 
-and not simply:
+Refunds are included because they represent a financial transaction relevant to the user's credit-card activity.
 
-```text
-TransactionType.CREDIT
-```
-
-The refund keyword therefore has higher priority than generic credit keywords.
-
-The implementation also distinguishes a **card refund** from a generic bank/UPI credit based on the card context.
+The refund is treated differently from a normal bank-account or UPI credit.
 
 ---
 
-# Running Tests
+## Exclusion Rules
 
-The core parsing logic is covered by Kotlin unit tests for different SMS structures, including normal spends, refunds, foreign currency transactions, and excluded messages.
+The classifier intentionally excludes messages that should not be treated as regular credit-card transactions.
 
-Run all tests:
+Examples include:
+
+- OTP messages
+- declined transactions
+- future auto-debits
+- bill-due notifications
+- credit-card payment confirmations
+- finance charges / fees
+- EMI conversion notifications
+- investments / SIPs
+- insurance payments
+- promotional offers
+- debit-card transactions
+- UPI bank-account transactions
+- savings-account transactions
+- balance-only alerts
+- malformed messages
+
+The classifier uses exclusion rules before positive transaction identification so that known irrelevant categories are filtered out early.
+
+---
+
+## Confidence Calculation
+
+The parser calculates confidence using the availability of important transaction fields.
+
+The current scoring considers:
+
+| Field | Weight |
+|---|---:|
+| Amount | 25% |
+| Bank | 20% |
+| Card | 20% |
+| Merchant | 20% |
+| Date | 15% |
+
+The final confidence score is constrained between `0.0` and `1.0`.
+
+This allows the UI to communicate how confidently a transaction was parsed.
+
+---
+
+## UI
+
+The application uses **Jetpack Compose** for the UI.
+
+The main screen provides:
+
+- total INR debit amount
+- total INR credit/refund amount
+- included transaction list
+- excluded SMS list
+- exclusion reasons
+- confidence indicators
+- merchant
+- bank
+- amount
+- currency
+- date
+- transaction type
+
+Tapping a row opens a detail screen containing:
+
+- raw SMS
+- decision
+- exclusion reason, if applicable
+- parsed transaction fields
+- confidence
+
+The UI is intentionally kept clean and readable because the primary evaluation focus is parsing correctness.
+
+---
+
+## Testing
+
+Unit tests cover:
+
+- normal credit-card spends
+- debit-card exclusions
+- OTP exclusions
+- UPI exclusions
+- co-branded card issuer resolution
+- refunds
+- foreign-currency transactions
+- malformed SMS
+- custom bank configuration
+
+A configuration test verifies that bank resolution is actually configuration-driven:
+
+```kotlin
+val customConfig = ParserConfig(
+    banks = listOf(
+        BankConfig(
+            canonicalName = "New Bank",
+            aliases = listOf(
+                "new bank",
+                "newbank"
+            )
+        )
+    ),
+    cardProducts = emptyList()
+)
+
+val parser = SmsParser(
+    bankResolver = BankResolver(customConfig)
+)
+```
+
+---
+
+## Running Tests
+
+Run all tests using:
 
 ```bash
 ./gradlew test
 ```
 
-Run Debug unit tests:
+Or specifically run Debug unit tests:
 
 ```bash
 ./gradlew testDebugUnitTest
 ```
 
-### Viewing Test Results
-
-After the tests complete, the HTML report can be found at:
+Test reports are generated at:
 
 ```text
 app/build/reports/tests/testDebugUnitTest/index.html
@@ -216,208 +484,120 @@ app/build/reports/tests/testDebugUnitTest/index.html
 
 ---
 
-# 5. What I Would Do Differently With a Full Week
+## What I Would Do Differently With a Full Week
 
-The current implementation focuses on delivering a working, modular parser within the available scope. With a full week, the following areas would be improved further.
+With additional development time, the following improvements would be made:
 
-### Parser improvements
+### 1. Expand SMS template coverage
 
-- Expand the rule engine with more variations of real-world Indian bank SMS templates.
-- Add more robust handling for malformed and partially received SMS messages.
-- Improve merchant extraction using a scoring/ranking approach instead of relying only on the first matching regex.
-- Improve date parsing for additional date formats and ambiguous dates.
-- Add stronger handling for multiple monetary values in a single SMS, such as:
-  - transaction amount
-  - GST
-  - available balance
-  - available credit limit
-- Improve bank/card-product normalization using a more maintainable configuration-driven mapping.
-- Add more comprehensive confidence scoring based on field consistency rather than only field presence.
+Build a larger anonymized corpus of SMS formats from different banks, card issuers, and transaction types.
 
-### Testing improvements
+This would allow the rule engine and extractors to be validated against more variations instead of a relatively small assignment dataset.
 
-- Increase test coverage substantially.
-- Add parameterized tests for families of SMS templates.
-- Add negative tests specifically designed to catch false positives.
-- Add regression tests for every parser bug discovered during development.
-- Test combinations of:
-  - bank + card
-  - UPI + bank account
-  - card refund
-  - card payment
-  - balance alerts
-  - promotional messages
-  - malformed SMS
+### 2. Improve configuration management
 
-### Android improvements
+Move bank aliases and card-product mappings into a more maintainable configuration source rather than requiring code changes for every new mapping.
 
-- Add proper navigation instead of maintaining screen state manually.
-- Introduce dependency injection for parser/repository components.
-- Add persistent local storage for parsed transactions.
-- Add proper loading/error/empty states.
-- Improve UI accessibility and responsive layouts.
-- Add sorting/filtering/search for transactions.
-- Add instrumentation/UI tests in addition to unit tests.
+For production, this could be backed by a remotely versioned configuration with safe local fallback.
 
-### Production-readiness
+### 3. Improve merchant extraction
 
-Before production deployment, the parser should be validated against a much larger anonymized dataset of real SMS formats. The most important metric would not simply be extraction accuracy, but the balance between:
+Merchant extraction could be enhanced with a more structured tokenization strategy and additional boundary rules for bank-specific templates.
 
-- **false inclusion** — irrelevant SMS incorrectly treated as transactions
-- **false exclusion** — valid transactions incorrectly discarded
+### 4. Improve confidence scoring
+
+The current confidence calculation is field-presence based.
+
+A production implementation could also consider:
+
+- strength of the matched pattern
+- consistency between extracted fields
+- known bank/card-product matches
+- transaction-type certainty
+- ambiguity between multiple possible merchants
+
+### 5. Add broader test coverage
+
+Add parameterized tests covering:
+
+- more bank SMS templates
+- different date formats
+- currencies
+- merchant names containing punctuation
+- refunds and reversals
+- co-branded cards
+- malformed/truncated messages
+- conflicting SMS signals
+
+### 6. Production hardening
+
+For production use, parsing should be monitored using anonymized parsing metrics and failures should be fed back into the configuration/rule system.
 
 ---
 
-# 6. Production Android Design Note
+## Production Android Design Note
 
-The current implementation is intentionally kept simple and focused on the parsing assignment.
+For a production Android application, the current architecture can be extended while keeping the parser independent from the UI.
 
-For a production Android application, the architecture would be evolved toward a clean, testable layered design:
+A possible architecture would be:
 
 ```text
-                 ┌─────────────────────┐
-                 │      UI Layer       │
-                 │ Jetpack Compose     │
-                 └──────────┬──────────┘
-                            │
-                            ▼
-                 ┌─────────────────────┐
-                 │     ViewModel       │
-                 └──────────┬──────────┘
-                            │
-                            ▼
-                 ┌─────────────────────┐
-                 │    Repository       │
-                 └──────────┬──────────┘
-                            │
-              ┌─────────────┴─────────────┐
-              ▼                           ▼
-      ┌───────────────┐           ┌────────────────┐
-      │ SMS Data      │           │ Local Database │
-      │ Source        │           │ Room           │
-      └───────────────┘           └────────────────┘
-              │
-              ▼
-      ┌────────────────┐
-      │ Parser Engine  │
-      │ Classifier +   │
-      │ Extractors     │
-      └────────────────┘
+UI
+ ↓
+ViewModel
+ ↓
+Repository
+ ↓
+Parser
+ ├── Classifier
+ ├── Extractors
+ ├── Configuration
+ └── Confidence Calculator
 ```
 
-### Production considerations
+The parser remains a pure Kotlin component and can therefore be tested independently of Android.
 
-**SMS ingestion**
+For production:
 
-A production implementation would read SMS through the appropriate Android SMS APIs and permissions rather than relying only on sample JSON data.
+- SMS ingestion would be separated from parsing.
+- Parsed transactions could be persisted using Room.
+- Configuration could be versioned and cached locally.
+- Parser configuration could be updated without requiring an application release.
+- Parsing failures could be logged using privacy-safe, anonymized telemetry.
+- UI state would remain managed by ViewModel and Kotlin Flow.
+- Long-running or batch parsing would be performed off the main thread.
 
-**Persistence**
-
-The current assignment does not require persistent storage for the parser demonstration. For production, parsed transactions should be persisted locally, and **Room** would be a suitable choice.
-
-**Background processing**
-
-SMS parsing should not block the main thread. Parsing, persistence, and potentially large batches of SMS should be performed using Kotlin Coroutines.
-
-**Dependency injection**
-
-Components such as `SmsParser`, classifiers, extractors, repositories, and database dependencies can be provided through a DI framework such as Hilt.
-
-**Security and privacy**
-
-Financial SMS data is sensitive. A production implementation should:
-
-- Minimize SMS data retention.
-- Avoid unnecessary logging of raw SMS.
-- Never expose sensitive SMS content in production logs.
-- Store only required transaction information.
-- Follow Android permission and privacy requirements.
-- Clearly communicate why SMS access is required.
-
-**Scalability**
-
-The parser should remain independent of the UI and storage layer so that the same parsing engine can be tested independently and reused by different data sources.
+The current implementation intentionally keeps the assignment scope smaller while maintaining a structure that can be extended toward a production architecture.
 
 ---
 
-# 7. AI Tool Usage
+## AI Tool Usage
 
-AI tools were used as a development aid during the implementation. AI tool-ChatGPT and Gemini
+AI tools(ChatGPT and Gemini) were used as development assistants during the implementation.
 
-The AI-assisted workflow was primarily used for:
+They were used for activities such as:
 
-- Structuring the parser into separate classifier, rule, extractor, configuration, and confidence components.
-- Reviewing Kotlin/Android code.
-- Identifying compilation errors and suggesting fixes.
-- Generating and refining regular expressions.
-- Reviewing edge cases in SMS parsing.
-- Improving merchant extraction for different SMS sentence structures.
-- Reviewing classification logic against the provided sample messages.
-- Improving the Android UI implementation.
-- Generating/refining unit-test scenarios.
-- Reviewing the project structure and README documentation.
+- brainstorming parser architecture
+- reviewing Kotlin code
+- identifying edge cases in SMS formats
+- improving regular expressions
+- suggesting unit-test scenarios
+- reviewing Compose UI structure
+- identifying potential bugs and classification conflicts
+- improving documentation
 
-### Important implementation principle
+AI-generated suggestions were **reviewed, tested, and adapted manually** before being incorporated into the project.
 
-AI-generated suggestions were **reviewed, tested, and adapted** rather than being blindly copied into the project.
+The final parsing behavior, configuration integration, tests, and architectural decisions were validated against the assignment requirements and test cases.
 
-The final implementation was kept:
-
-- Kotlin-based
-- Android Native
-- modular
-- unit-testable
-- rule/configuration driven
-- independent of the UI layer
-
-The parser was also iteratively tested against the provided SMS examples, especially the challenging cases involving merchant extraction, bank/card identification, and refunds.
+AI tools were used to accelerate development and code review, not as a replacement for testing or engineering decisions.
 
 ---
 
-# Technology Stack
+## Native Android Implementation
 
-- **Language:** Kotlin
-- **Platform:** Android Native
-- **UI:** Jetpack Compose
-- **Architecture:** ViewModel + Repository + Parser layers
-- **Asynchronous programming:** Kotlin Coroutines / Flow
-- **Testing:** Kotlin/JUnit unit tests
-- **Parsing:** Kotlin Regex + rule-based classification
-- **Persistence:** Not required for the current assignment; Room is a production consideration
+This project was implemented as a **native Android application using Kotlin and Jetpack Compose**.
 
----
+The core parser is written in Kotlin, while the UI uses Jetpack Compose and Android ViewModel/Flow for state management.
 
-# Design Principles
-
-The implementation follows these principles:
-
-1. **Separate classification from extraction.**
-2. **Prefer generic parsing rules over sample-specific patches.**
-3. **Keep parser components independently testable.**
-4. **Give exclusion rules priority over inclusion.**
-5. **Give specific transaction types such as REFUND priority over generic CREDIT detection.**
-6. **Keep bank/card resolution separate from merchant extraction.**
-7. **Preserve the raw SMS for debugging/detail display.**
-8. **Use confidence scoring to represent extraction reliability.**
-9. **Keep the core parser independent from Android UI concerns.**
-10. **Use Android Native Kotlin as the implementation platform.**
-
----
-
-# Conclusion
-
-The project demonstrates a modular Android Native SMS parsing solution that separates:
-
-```text
-Classification
-      ↓
-Extraction
-      ↓
-Transaction Modeling
-      ↓
-Confidence Calculation
-      ↓
-UI Presentation
-```
-
-The primary focus is not simply extracting values from the provided examples, but building a rule-based structure that can be extended to handle additional bank SMS formats without adding a separate hardcoded patch for every message.
+No cross-platform UI framework was used.
