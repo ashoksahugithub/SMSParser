@@ -32,8 +32,6 @@ fun SmsResultItem(
     result: ParsedResult,
     onClick: () -> Unit
 ) {
-
-    val transaction = result.transaction
     val isIncluded = result.decision == Decision.INCLUDE
 
     Card(

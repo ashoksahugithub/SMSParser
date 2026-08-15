@@ -1,7 +1,5 @@
 package com.example.smsparser.model
 
-import java.time.LocalDateTime
-
 data class Transaction(
     val amount: Double,
     val currency: String,
