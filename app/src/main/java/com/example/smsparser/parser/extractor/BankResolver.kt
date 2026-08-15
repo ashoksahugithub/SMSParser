@@ -1,73 +1,116 @@
 package com.example.smsparser.parser.extractor
 
-class BankResolver {
+import com.example.smsparser.parser.config.ParserConfig
 
-    private val bankAliases = linkedMapOf(
-
-        "HDFC Bank" to listOf(
-            "hdfc bank",
-            "hdfc"
-        ),
-
-        "ICICI Bank" to listOf(
-            "icici bank",
-            "icici"
-        ),
-
-        "Axis Bank" to listOf(
-            "axis bank",
-            "axis"
-        ),
-
-        "YES BANK" to listOf(
-            "yes bank",
-            "yesbank"
-        ),
-
-        "Federal Bank" to listOf(
-            "federal bank"
-        ),
-
-        "Bank of Baroda" to listOf(
-            "bank of baroda",
-            "bobcard",
-            "bob card"
-        ),
-
-        "SBI" to listOf(
-            "state bank of india",
-            "sbi"
-        ),
-
-        "Kotak Mahindra Bank" to listOf(
-            "kotak mahindra bank",
-            "kotak bank",
-            "kotak"
-        )
-    )
+class BankResolver(
+    private val config: ParserConfig = ParserConfig.DEFAULT
+) {
 
     fun resolve(sms: String): String? {
 
-        val text = sms
-            .lowercase()
-            .replace(Regex("\\s+"), " ")
-            .trim()
+        val text = normalize(sms)
 
-        for ((canonicalName, aliases) in bankAliases) {
+        if (text.isBlank()) {
+            return null
+        }
 
-            for (alias in aliases) {
+        /*
+         * Product-specific patterns have priority over generic
+         * bank aliases.
+         *
+         * This is important for co-branded/fintech products.
+         *
+         * Example:
+         * "Edge Federal Bank Credit Card"
+         *
+         * should resolve to:
+         * Federal Bank
+         *
+         * and:
+         *
+         * "BOBCARD One Credit Card"
+         *
+         * should resolve to:
+         * Bank of Baroda
+         */
+        val productMatch = findProductMatch(text)
 
-                val pattern = Regex(
-                    """(?<![a-z])${Regex.escape(alias)}(?![a-z])""",
-                    RegexOption.IGNORE_CASE
-                )
+        if (productMatch != null) {
+            return productMatch
+        }
 
-                if (pattern.containsMatchIn(text)) {
-                    return canonicalName
+        /*
+         * If no product-specific configuration matches,
+         * fall back to normal bank aliases.
+         */
+        return findBankMatch(text)
+    }
+
+    private fun findProductMatch(text: String): String? {
+
+        /*
+         * Sort by pattern length so a more specific pattern wins.
+         *
+         * Example:
+         *
+         * "bobcard one credit card"
+         *
+         * should win over:
+         *
+         * "bobcard"
+         */
+        val products = config.cardProducts
+            .flatMap { product ->
+                product.patterns.map { pattern ->
+                    product to pattern
                 }
+            }
+            .sortedByDescending {
+                it.second.length
+            }
+
+        for ((product, pattern) in products) {
+
+            if (text.contains(pattern.lowercase())) {
+                return product.issuerBank
             }
         }
 
         return null
+    }
+
+    private fun findBankMatch(text: String): String? {
+
+        /*
+         * Again, prefer the longest alias.
+         *
+         * This avoids short aliases winning when a more
+         * specific bank name is available.
+         */
+        val aliases = config.banks
+            .flatMap { bank ->
+                bank.aliases.map { alias ->
+                    bank to alias
+                }
+            }
+            .sortedByDescending {
+                it.second.length
+            }
+
+        for ((bank, alias) in aliases) {
+
+            if (text.contains(alias.lowercase())) {
+                return bank.canonicalName
+            }
+        }
+
+        return null
+    }
+
+    private fun normalize(sms: String): String {
+        return sms
+            .trim()
+            .lowercase()
+            .replace(Regex("\\s+"), " ")
     }
 }

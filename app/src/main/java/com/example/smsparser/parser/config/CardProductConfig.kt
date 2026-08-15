@@ -1,29 +1,19 @@
 package com.example.smsparser.parser.config
 
+/**
+ * Represents a card/product branding that can identify
+ * the underlying issuer bank.
+ *
+ * Example:
+ *
+ * Edge Federal Bank Credit Card
+ * -> Federal Bank
+ *
+ * BOBCARD One Credit Card
+ * -> Bank of Baroda
+ */
 data class CardProductConfig(
-    val creditCardPatterns: List<String>,
-    val debitCardPatterns: List<String>
+    val productName: String,
+    val issuerBank: String,
+    val patterns: List<String>
 )
-
-object CardProductConfigs {
-
-    val default = CardProductConfig(
-
-        creditCardPatterns = listOf(
-            "credit card",
-            "creditcard",
-            "credit card ending",
-            "credit card xx",
-            "credit card *",
-            "card ending in"
-        ),
-
-        debitCardPatterns = listOf(
-            "debit card",
-            "debitcard",
-            "debit card ending",
-            "debit card xx",
-            "debit card *"
-        )
-    )
-}

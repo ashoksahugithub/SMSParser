@@ -6,6 +6,7 @@ import com.example.smsparser.model.Transaction
 import com.example.smsparser.parser.classifier.ClassificationResult
 import com.example.smsparser.parser.classifier.SmsClassifier
 import com.example.smsparser.parser.confidence.ConfidenceCalculator
+import com.example.smsparser.parser.config.ParserConfig
 import com.example.smsparser.parser.extractor.AmountExtractor
 import com.example.smsparser.parser.extractor.BankResolver
 import com.example.smsparser.parser.extractor.CardExtractor
@@ -18,7 +19,8 @@ class SmsParser(
     private val classifier: SmsClassifier = SmsClassifier(),
     private val amountExtractor: AmountExtractor = AmountExtractor(),
     private val currencyExtractor: CurrencyExtractor = CurrencyExtractor(),
-    private val bankResolver: BankResolver = BankResolver(),
+    private val bankResolver: BankResolver =
+        BankResolver(ParserConfig.DEFAULT),
     private val cardExtractor: CardExtractor = CardExtractor(),
     private val merchantExtractor: MerchantExtractor = MerchantExtractor(),
     private val dateExtractor: DateExtractor = DateExtractor(),

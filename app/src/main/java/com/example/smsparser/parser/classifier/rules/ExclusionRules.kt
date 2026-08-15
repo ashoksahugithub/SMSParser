@@ -1,7 +1,6 @@
 package com.example.smsparser.parser.classifier.rules
 
 import com.example.smsparser.model.ExcludeReason
-import com.example.smsparser.parser.config.ParserConfig
 
 object ExclusionRules {
 
