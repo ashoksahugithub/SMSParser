@@ -2,66 +2,69 @@ package com.example.smsparser.parser.extractor
 
 class BankResolver {
 
-    private data class BankRule(
-        val bankName: String,
-        val patterns: List<Regex>
-    )
+    private val bankAliases = linkedMapOf(
 
-    private val rules = listOf(
-
-        BankRule(
-            bankName = "HDFC Bank",
-            patterns = listOf(
-                Regex("""(?i)\bHDFC\s+Bank\b"""),
-                Regex("""(?i)\bHDFC\s+Credit\s+Card\b""")
-            )
+        "HDFC Bank" to listOf(
+            "hdfc bank",
+            "hdfc"
         ),
 
-        BankRule(
-            bankName = "ICICI Bank",
-            patterns = listOf(
-                Regex("""(?i)\bICICI\s+Bank\b"""),
-                Regex("""(?i)\bICICI\s+Credit\s+Card\b""")
-            )
+        "ICICI Bank" to listOf(
+            "icici bank",
+            "icici"
         ),
 
-        BankRule(
-            bankName = "Axis Bank",
-            patterns = listOf(
-                Regex("""(?i)\bAxis\s+Bank\b"""),
-                Regex("""(?i)\bAxis\s+Bank\s+Card\b""")
-            )
+        "Axis Bank" to listOf(
+            "axis bank",
+            "axis"
         ),
 
-        BankRule(
-            bankName = "YES BANK",
-            patterns = listOf(
-                Regex("""(?i)\bYES\s+BANK\b""")
-            )
+        "YES BANK" to listOf(
+            "yes bank",
+            "yesbank"
         ),
 
-        BankRule(
-            bankName = "Federal Bank",
-            patterns = listOf(
-                Regex("""(?i)\bFederal\s+Bank\b"""),
-                Regex("""(?i)\bEdge\s+Federal\s+Bank\b""")
-            )
+        "Federal Bank" to listOf(
+            "federal bank"
         ),
 
-        BankRule(
-            bankName = "Bank of Baroda",
-            patterns = listOf(
-                Regex("""(?i)\bBOBCARD\b"""),
-                Regex("""(?i)\bBOBCARD\s+One\b""")
-            )
+        "Bank of Baroda" to listOf(
+            "bank of baroda",
+            "bobcard",
+            "bob card"
+        ),
+
+        "SBI" to listOf(
+            "state bank of india",
+            "sbi"
+        ),
+
+        "Kotak Mahindra Bank" to listOf(
+            "kotak mahindra bank",
+            "kotak bank",
+            "kotak"
         )
     )
 
     fun resolve(sms: String): String? {
 
-        for (rule in rules) {
-            if (rule.patterns.any { it.containsMatchIn(sms) }) {
-                return rule.bankName
+        val text = sms
+            .lowercase()
+            .replace(Regex("\\s+"), " ")
+            .trim()
+
+        for ((canonicalName, aliases) in bankAliases) {
+
+            for (alias in aliases) {
+
+                val pattern = Regex(
+                    """(?<![a-z])${Regex.escape(alias)}(?![a-z])""",
+                    RegexOption.IGNORE_CASE
+                )
+
+                if (pattern.containsMatchIn(text)) {
+                    return canonicalName
+                }
             }
         }
 

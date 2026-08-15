@@ -44,7 +44,7 @@ class SmsParser(
                     decision = Decision.EXCLUDE,
                     excludeReason = classification.reason,
                     transaction = null,
-                    confidence = 0.95
+                    confidence = classification.confidence
                 )
             }
 

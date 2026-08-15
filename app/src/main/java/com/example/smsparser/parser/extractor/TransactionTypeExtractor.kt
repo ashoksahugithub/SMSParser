@@ -6,9 +6,14 @@ class TransactionTypeExtractor {
 
     fun extract(sms: String): TransactionType {
 
-        val text = sms.lowercase()
+        val text = sms
+            .lowercase()
+            .replace(Regex("\\s+"), " ")
+            .trim()
 
         return when {
+
+            // Refund/reversal must be checked first.
             text.contains("refund") ||
                     text.contains("refunded") ||
                     text.contains("reversal") -> {

@@ -12,6 +12,7 @@ class MerchantExtractor {
          * 1. "at MERCHANT with your ... Card"
          *
          * Example:
+         *
          * at Blackwater Coffee, Gurgaon with your BOBCARD One
          * Credit Card ending in XX9907
          *
@@ -24,37 +25,10 @@ class MerchantExtractor {
         )
 
         /*
-         * 2. "at MERCHANT on DATE"
+         * 2. "to MERCHANT on your ... Card"
          *
          * Example:
-         * at AMAZON on 07-04-26
          *
-         * Result:
-         * AMAZON
-         */
-        val atDatePattern = Regex(
-            """\bat\s+(.+?)\s+(?=on\s+\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b)""",
-            RegexOption.IGNORE_CASE
-        )
-
-        /*
-         * 3. "at MERCHANT. Available..."
-         *
-         * Example:
-         * at AMAZON. Available Limit: INR 87,500
-         *
-         * Result:
-         * AMAZON
-         */
-        val atAvailablePattern = Regex(
-            """\bat\s+(.+?)(?=\.\s*(?:available|avl)\b)""",
-            RegexOption.IGNORE_CASE
-        )
-
-        /*
-         * 4. "to MERCHANT on your ... Card"
-         *
-         * Example:
          * to HOSPITALITY PVT DELHI IN on your Edge Federal Bank
          * Credit Card ending 4422
          *
@@ -67,19 +41,50 @@ class MerchantExtractor {
         )
 
         /*
-         * 5. "at MERCHANT" as a final fallback.
+         * 3. Refund:
          *
-         * Important:
-         * Stop at common sentence boundaries such as:
-         * - " on "
-         * - " with "
-         * - "."
+         * "from BIGBASKET on 12-04-26"
          *
-         * This prevents:
+         * Result:
+         * BIGBASKET
          *
-         * AMAZON on 07-04-26
+         * This is deliberately generic.
+         */
+        val fromDatePattern = Regex(
+            """\bfrom\s+(.+?)\s+(?=on\s+\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b)""",
+            RegexOption.IGNORE_CASE
+        )
+
+        /*
+         * 4. "at MERCHANT on DATE"
          *
-         * from becoming the merchant.
+         * Example:
+         *
+         * at AMAZON on 07-04-26
+         *
+         * Result:
+         * AMAZON
+         */
+        val atDatePattern = Regex(
+            """\bat\s+(.+?)\s+(?=on\s+\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b)""",
+            RegexOption.IGNORE_CASE
+        )
+
+        /*
+         * 5. "at MERCHANT. Available..."
+         */
+        val atAvailablePattern = Regex(
+            """\bat\s+(.+?)(?=\.\s*(?:available|avl)\b)""",
+            RegexOption.IGNORE_CASE
+        )
+
+        /*
+         * 6. Generic "at MERCHANT" fallback.
+         *
+         * Stop before:
+         * - on
+         * - with
+         * - sentence boundary
          */
         val atFallbackPattern = Regex(
             """\bat\s+(.+?)(?=\s+on\s+|\s+with\s+|[.!?]|$)""",
@@ -88,9 +93,10 @@ class MerchantExtractor {
 
         val patterns = listOf(
             atWithCardPattern,
+            toCardPattern,
+            fromDatePattern,
             atDatePattern,
             atAvailablePattern,
-            toCardPattern,
             atFallbackPattern
         )
 

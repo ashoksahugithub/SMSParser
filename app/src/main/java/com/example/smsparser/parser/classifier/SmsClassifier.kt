@@ -18,7 +18,40 @@ class SmsClassifier {
             )
         }
 
-        // 2. Exclusion rules always have priority
+        /*
+         * 2. Explicit card refund.
+         *
+         * A refund is included only when it is credited/refunded
+         * to a card.
+         *
+         * Examples included:
+         *
+         * "Refund ... credited to your HDFC Card xx5678
+         *  from BIGBASKET..."
+         *
+         * "Refund ... to your Credit Card..."
+         *
+         * Bank-account / UPI refunds are NOT matched here.
+         */
+        if (InclusionRules.isCardRefund(text)) {
+            return ClassificationResult.Include
+        }
+
+        /*
+         * 3. Exclusion rules have priority for all other messages.
+         *
+         * This handles:
+         * OTP
+         * UPI bank-account transactions
+         * savings-account transactions
+         * debit-card transactions
+         * offers
+         * bills
+         * declined transactions
+         * investments
+         * insurance
+         * etc.
+         */
         val exclusionReason = ExclusionRules.check(text)
 
         if (exclusionReason != null) {
@@ -28,12 +61,16 @@ class SmsClassifier {
             )
         }
 
-        // 3. Explicit positive identification
+        /*
+         * 4. Normal credit-card transaction.
+         */
         if (InclusionRules.isRelevantCreditCardTransaction(text)) {
             return ClassificationResult.Include
         }
 
-        // 4. Conservative fallback
+        /*
+         * 5. Conservative fallback.
+         */
         return ClassificationResult.Exclude(
             reason = ExcludeReason.LOW_CONFIDENCE,
             confidence = 0.60

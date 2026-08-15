@@ -1,57 +1,81 @@
 package com.example.smsparser.parser.classifier.rules
 
-import com.example.smsparser.parser.config.ParserConfig
-
 object InclusionRules {
 
+    /**
+     * Normal credit-card transaction.
+     *
+     * Examples:
+     *
+     * "INR 1250 spent on HDFC Bank Credit Card xx5678 at SWIGGY"
+     *
+     * "Spent Rs 1200 on YES BANK Credit Card XX8888 at AMAZON"
+     *
+     * "spent Rs 849 at Blackwater Coffee with your
+     *  BOBCARD One Credit Card ending in XX9907"
+     */
     fun isRelevantCreditCardTransaction(text: String): Boolean {
 
-        val hasCreditCardIdentity =
-            hasCreditCardIdentity(text)
+        val hasCreditCard = Regex(
+            """\bcredit\s*card\b"""
+        ).containsMatchIn(text)
 
-        if (!hasCreditCardIdentity) {
+        val hasTransactionAction =
+            text.contains("spent") ||
+                    text.contains("spend") ||
+                    text.contains("debited") ||
+                    text.contains("charged") ||
+                    text.contains("purchase") ||
+                    text.contains("transaction")
+
+        return hasCreditCard && hasTransactionAction
+    }
+
+    /**
+     * Explicit card refund.
+     *
+     * Important:
+     *
+     * We intentionally require CARD identity.
+     *
+     * Therefore:
+     *
+     * Refund -> HDFC Card       => INCLUDE
+     * Refund -> Credit Card     => INCLUDE
+     * Refund -> Debit Card      => INCLUDE
+     *
+     * But:
+     *
+     * Refund -> A/c             => NOT matched
+     * Refund -> Account         => NOT matched
+     * Refund -> UPI             => NOT matched
+     */
+    fun isCardRefund(text: String): Boolean {
+
+        val isRefund =
+            text.contains("refund") ||
+                    text.contains("refunded") ||
+                    text.contains("reversal")
+
+        if (!isRefund) {
             return false
         }
 
-        val hasCompletedTransaction =
-            hasCompletedTransaction(text)
+        val hasCardIdentity =
+            Regex("""\bcredit\s*card\b""").containsMatchIn(text) ||
+                    Regex("""\bdebit\s*card\b""").containsMatchIn(text) ||
+                    Regex("""\bcard\b""").containsMatchIn(text)
 
-        if (!hasCompletedTransaction) {
-            return false
-        }
+        val hasBankAccountIdentity =
+            text.contains("a/c") ||
+                    text.contains("account")
 
-        if (isFutureTransaction(text)) {
-            return false
-        }
+        val hasUpiIdentity =
+            text.contains("upi") ||
+                    text.contains("via upi")
 
-        return true
-    }
-
-    private fun hasCreditCardIdentity(text: String): Boolean {
-
-        val patterns =
-            ParserConfig.cardProductConfig.creditCardPatterns
-
-        return patterns.any { pattern ->
-            text.contains(pattern)
-        }
-    }
-
-    private fun hasCompletedTransaction(text: String): Boolean {
-
-        return text.contains("spent") ||
-                text.contains("charged") ||
-                text.contains("purchase") ||
-                text.contains("purchased") ||
-                text.contains("transaction") ||
-                text.contains("refund")
-    }
-
-    private fun isFutureTransaction(text: String): Boolean {
-
-        return text.contains("will be debited") ||
-                text.contains("will be auto debited") ||
-                text.contains("scheduled") ||
-                text.contains("e-mandate")
+        return hasCardIdentity &&
+                !hasBankAccountIdentity &&
+                !hasUpiIdentity
     }
 }
