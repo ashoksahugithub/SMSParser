@@ -104,8 +104,7 @@ private fun IncludedRow(
 
             Text(
                 text = transaction.merchantName
-                    ?: transaction.bankName
-                    ?: "Unknown",
+                    ?: transaction.bankName,
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp,
                 maxLines = 1,
@@ -123,7 +122,7 @@ private fun IncludedRow(
                         append(it)
                     }
 
-                    transaction.bankName?.let {
+                    transaction.bankName.let {
                         append(" • ")
                         append(it)
                     }
